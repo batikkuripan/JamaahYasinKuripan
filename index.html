@@ -1,0 +1,635 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#4a5e23">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Yasin Kuripan">
+<title>Jamaah Yasin Kuripan</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/supabase.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{font-family:Arial,sans-serif;margin:0;padding:0;background:#f4f4f4;min-height:100vh}
+header{background:#4a5e23;color:#fff;padding:0.8rem 1rem;display:flex;align-items:center;justify-content:center;gap:1rem;position:sticky;top:0;z-index:100;box-shadow:0 2px 8px rgba(0,0,0,0.3)}
+section{padding:0.8rem;max-width:960px;margin:auto}
+h2{margin-top:1.5rem;color:#4a5e23;font-size:1rem;border-bottom:2px solid #4a5e23;padding-bottom:4px}
+table{width:100%;border-collapse:collapse;margin-top:0.5rem;font-size:0.85rem}
+table,th,td{border:1px solid #ccc}
+th{background:#4a5e23;color:#fff;padding:0.4rem;text-align:left}
+td{padding:0.4rem}
+input,select,textarea{padding:0.4rem;margin:0.3rem 0;width:100%;border:1px solid #ccc;border-radius:4px;font-size:0.9rem}
+button{padding:0.5rem 1rem;margin:0.3rem 0;background:#4a5e23;color:white;border:none;cursor:pointer;border-radius:4px;font-size:0.9rem;width:100%}
+button:hover,button:active{background:#2f3a15}
+.btn-sm{width:auto;padding:0.3rem 0.7rem;font-size:0.8rem}
+.chat-box{border:1px solid #ccc;padding:0.5rem;height:120px;overflow-y:auto;background:#fff;margin-top:0.5rem;font-size:0.8rem}
+.footer{margin-top:2rem;padding:1rem;text-align:center;color:#555;font-size:0.85rem;background:#e9ecef}
+.badge{display:inline-block;padding:2px 8px;border-radius:10px;font-size:0.75rem;background:#4a5e23;color:#fff}
+
+/* ===== LOCK SCREEN ===== */
+#lockScreen{position:fixed;top:0;left:0;width:100%;height:100%;background:linear-gradient(135deg,#2f3a15,#4a5e23,#6b8c32);z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:2rem}
+#lockScreen .lock-box{background:rgba(255,255,255,0.1);backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,0.2);border-radius:20px;padding:2rem;width:100%;max-width:380px;text-align:center}
+#lockScreen h2{color:#fff;margin:0 0 0.5rem;font-size:1.5rem}
+#lockScreen p{color:rgba(255,255,255,0.8);margin:0 0 1.5rem;font-size:0.9rem}
+#lockScreen input{background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.4);color:#fff;font-size:1.1rem;text-align:center;letter-spacing:4px;border-radius:8px;padding:0.8rem}
+#lockScreen input::placeholder{color:rgba(255,255,255,0.5);letter-spacing:normal}
+#lockScreen button{background:#fff;color:#4a5e23;font-weight:bold;border-radius:8px;font-size:1rem;margin-top:0.5rem}
+#lockScreen button:hover{background:#f0f0f0}
+#lockMsg{color:#ff6b6b;margin-top:0.5rem;font-size:0.85rem;min-height:20px}
+#lockScreen .logo-lock{width:100px;height:100px;border-radius:50%;margin-bottom:1rem;border:3px solid rgba(255,255,255,0.5)}
+#lockScreen .tap-hint{color:rgba(255,255,255,0.4);font-size:0.75rem;margin-top:1.5rem}
+.lock-icon{font-size:3rem;margin-bottom:0.5rem}
+
+/* ===== ADMIN PANEL KODE ===== */
+#adminPanel{display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.85);z-index:9998;overflow-y:auto;padding:1rem}
+#adminPanel .admin-box{background:#fff;border-radius:12px;padding:1.5rem;max-width:500px;margin:auto;margin-top:2rem}
+#adminPanel h3{color:#4a5e23;margin-top:0}
+.code-item{background:#f8f8f8;border:1px solid #ddd;border-radius:6px;padding:0.6rem 1rem;margin:0.4rem 0;font-size:0.88rem}
+.code-item .kode-val{font-family:monospace;font-size:1rem;font-weight:bold;color:#2e7d32;letter-spacing:2px;background:#e8f5e9;padding:3px 8px;border-radius:4px;display:inline-block;margin:4px 0}
+.code-item .info{color:#555;font-size:0.82rem}
+.gen-result{background:#e8f5e9;border:2px solid #4a5e23;border-radius:8px;padding:1rem;text-align:center;margin-top:0.8rem;display:none}
+.gen-result .kode-besar{font-family:monospace;font-size:1.4rem;font-weight:bold;color:#2e7d32;letter-spacing:3px;word-break:break-all}
+
+/* ===== INSTALL PROMPT ===== */
+#installBanner{display:none;background:#ff8c00;color:#fff;padding:0.7rem 1rem;text-align:center;font-size:0.85rem;position:sticky;top:56px;z-index:99}
+#installBanner button{background:#fff;color:#ff8c00;width:auto;padding:0.3rem 1rem;font-weight:bold;margin-left:0.5rem}
+
+/* ===== RESPONSIVE ===== */
+@media(min-width:600px){
+  button{width:auto}
+  .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:0.5rem}
+}
+</style>
+</head>
+<body>
+
+<!-- ====== LOCK SCREEN ====== -->
+<div id="lockScreen">
+  <div class="lock-box">
+    <img id="logoLock" src="data:image/webp;base64,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" alt="Logo" class="logo-lock" id="tapLogo">
+    <div class="lock-icon">🔒</div>
+    <h2>Jamaah Yasin Kuripan</h2>
+    <p>Masukkan kode aktivasi<br>yang diberikan oleh <strong>POEDJIONO</strong></p>
+    <input type="text" id="namaInput" placeholder="✍️ Nama Lengkap Anda" autocomplete="off" spellcheck="false" style="margin-bottom:0.4rem">
+    <input type="tel" id="hpInput" placeholder="📱 No HP / WhatsApp (cth: 08123456789)" autocomplete="off" style="margin-bottom:0.4rem">
+    <input type="text" id="kodeInput" placeholder="🔑 Kode Aktivasi dari POEDJIONO" maxlength="14" autocomplete="off" autocorrect="off" autocapitalize="characters" spellcheck="false">
+    <button onclick="cekKode()">🔓 AKTIFKAN</button>
+    <div id="lockMsg"></div>
+    <p class="tap-hint">Ketuk logo 5x untuk Admin • Hak akses oleh POEDJIONO</p>
+  </div>
+</div>
+
+<!-- ====== ADMIN PANEL KODE ====== -->
+<div id="adminPanel">
+  <div class="admin-box">
+    <h3>🔑 Panel Admin POEDJIONO</h3>
+    <p style="color:#666;font-size:0.85rem">Generate kode aktivasi unik per orang berdasarkan Nama + No HP</p>
+    <hr>
+    <p style="font-weight:bold;color:#4a5e23;margin:0.3rem 0">➕ Generate Kode Baru</p>
+    <input type="text" id="adminNama" placeholder="Nama orang yang akan diberi akses" style="margin-bottom:0.3rem">
+    <input type="tel" id="adminHp" placeholder="No HP / WA (cth: 081234567890)">
+    <button class="btn-sm" style="width:100%;background:#4a5e23" onclick="generateKodeBaru()">⚙️ Generate Kode</button>
+    <div class="gen-result" id="hasilGenerate">
+      <p style="margin:0 0 0.4rem;font-size:0.85rem;color:#555">Kode Aktivasi untuk:</p>
+      <p id="hasilNamaHp" style="font-weight:bold;margin:0 0 0.5rem;color:#333"></p>
+      <div class="kode-besar" id="hasilKode"></div>
+      <div style="display:flex;gap:0.5rem;margin-top:0.8rem">
+        <button class="btn-sm" style="flex:1;background:#25D366" onclick="kirimViaWA()">📤 Kirim WA</button>
+        <button class="btn-sm" style="flex:1;background:#1565c0" onclick="salinKode()">📋 Salin</button>
+      </div>
+    </div>
+    <hr>
+    <p style="font-weight:bold;color:#4a5e23;margin:0.3rem 0">📋 Riwayat Kode Dibuat</p>
+    <div id="kodeList" style="max-height:250px;overflow-y:auto"></div>
+    <hr>
+    <button class="btn-sm" style="background:#c0392b;width:100%" onclick="tutupAdmin()">✕ Tutup Panel Admin</button>
+  </div>
+</div>
+
+<!-- ====== INSTALL BANNER ====== -->
+<div id="installBanner">
+  📱 Install aplikasi ini di HP Anda!
+  <button onclick="installApp()">Install</button>
+  <button style="background:transparent;color:#fff;border:none;cursor:pointer" onclick="document.getElementById('installBanner').style.display='none'">✕</button>
+</div>
+
+<!-- ====== HEADER ====== -->
+<header>
+  <img src="data:image/webp;base64,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" alt="Logo NU" style="width:50px;height:50px;mix-blend-mode:screen;border-radius:50%">
+  <div style="text-align:center">
+    <h1 style="margin:0;font-size:1.1rem">Jamaah Yasin Kuripan</h1>
+    <p style="margin:0;font-size:0.75rem;opacity:0.85">KURIPAN LOR Gg 20 PEKALONGAN</p>
+  </div>
+</header>
+
+<section id="mainApp">
+
+<h2>1. Anggota</h2>
+<form id="anggotaForm">
+<input type="text" id="nama" placeholder="Nama" required>
+<input type="text" id="whatsapp" placeholder="No WhatsApp" required>
+<select id="status">
+<option value="Anggota">Anggota</option>
+<option value="Pemuka">Pemuka</option>
+</select>
+<input type="text" id="keterangan" placeholder="Keterangan">
+<button type="submit">➕ Tambah Anggota</button>
+</form>
+<div style="overflow-x:auto">
+<table id="anggotaTable">
+<thead><tr><th>Nama</th><th>Status</th><th>Keterangan</th><th>Aksi</th></tr></thead>
+<tbody></tbody>
+</table>
+</div>
+
+<h2>2. Pertemuan & Absensi</h2>
+<form id="pertemuanForm">
+<input type="date" id="tanggalPertemuan" required>
+<input type="text" id="tuanRumah" placeholder="Tuan Rumah" required>
+<input type="number" id="iuran" value="15000" required>
+<input type="text" id="keteranganPertemuan" placeholder="Keterangan Pertemuan">
+<button type="submit">📅 Buat Pertemuan</button>
+</form>
+<div style="overflow-x:auto">
+<table id="pertemuanTable">
+<thead><tr><th>Tanggal</th><th>Tuan Rumah</th><th>Iuran</th><th>Hadir</th><th>Total</th><th>Ket</th></tr></thead>
+<tbody></tbody>
+</table>
+</div>
+<form id="absensiForm" style="margin-top:1rem">
+<select id="pilihPertemuan" style="width:100%"></select>
+<div id="anggotaList" style="margin:0.5rem 0"></div>
+<button type="submit">✅ Simpan Absensi</button>
+</form>
+<p id="totalIuranDisplay" style="font-weight:bold;color:#4a5e23">Total Iuran: Rp 0</p>
+
+<h2>3. Pengeluaran</h2>
+<form id="pengeluaranForm">
+<input type="date" id="tanggalPengeluaran" required>
+<input type="text" id="jenisPengeluaran" placeholder="Jenis Pengeluaran" required>
+<input type="number" id="nominalPengeluaran" placeholder="Nominal" required>
+<input type="text" id="keteranganPengeluaran" placeholder="Keterangan">
+<button type="submit">📝 Catat Pengeluaran</button>
+</form>
+<div style="overflow-x:auto">
+<table id="pengeluaranTable">
+<thead><tr><th>Tanggal</th><th>Jenis</th><th>Nominal</th><th>Keterangan</th></tr></thead>
+<tbody></tbody>
+</table>
+</div>
+
+<h2>4. Saldo Kas</h2>
+<p id="saldoKas" style="font-size:1.2rem;font-weight:bold;color:#4a5e23">Saldo Kas: Rp 0</p>
+
+<h2>5. Laporan Bulanan</h2>
+<div class="grid-2">
+<select id="pilihBulan"></select>
+<select id="pilihTahun"></select>
+</div>
+<button id="tampilLaporan" style="width:auto">📊 Tampilkan</button>
+<button id="exportExcel" style="width:auto;background:#1d6f42">📗 Excel</button>
+<button id="exportPDF" style="width:auto;background:#c0392b">📕 PDF</button>
+<div style="overflow-x:auto">
+<table id="laporanTable">
+<thead><tr><th>Pertemuan</th><th>Hadir</th><th>Iuran/Orang</th><th>Total Iuran</th><th>Keterangan</th></tr></thead>
+<tbody></tbody>
+</table>
+</div>
+
+<h2>6. Kirim WA / Chat Admin</h2>
+<textarea id="pesanAdmin" placeholder="Tulis pesan untuk anggota..." rows="3"></textarea>
+<button id="kirimWA">📤 Kirim ke Semua Anggota</button>
+<div class="chat-box" id="chatBox"></div>
+
+</section>
+
+<div class="footer">
+  Aplikasi dibuat oleh <strong>POEDJIONO KURIPAN LOR GANG 20 PEKALONGAN</strong>
+</div>
+
+<script>
+// ============================================================
+// SISTEM KODE AKTIVASI BERBASIS NAMA + NO HP
+// ============================================================
+// Kode dibuat secara algoritmik dari Nama + No HP + kunci rahasia
+// POEDJIONO generate kode di Admin Panel, lalu kirim ke pengguna via WA
+// Pengguna masukkan: Nama + No HP + Kode → langsung terverifikasi
+// ============================================================
+
+const KUNCI_RAHASIA = 'YASIN826PKL2026'; // Kunci rahasia internal
+const MASTER_CODE   = 'POEDJIONO-MASTER-2026'; // Kode khusus POEDJIONO
+
+let tapCount = 0, tapTimer = null, wrongAttempts = 0;
+let _genNama = '', _genHp = '', _genKode = '';
+
+// --- Algoritma generate kode dari nama + hp ---
+function buatKodeUnik(nama, hp) {
+  const namaClean = nama.toUpperCase().replace(/[^A-Z]/g, '');
+  const hpClean   = hp.replace(/\D/g, '');
+  const str       = namaClean + hpClean + KUNCI_RAHASIA;
+  // Hash sederhana deterministik
+  let h = 5381;
+  for (let i = 0; i < str.length; i++) {
+    h = ((h << 5) + h) ^ str.charCodeAt(i);
+    h = h >>> 0; // unsigned 32-bit
+  }
+  const CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let part1 = '', part2 = '', n = h;
+  for (let i = 0; i < 4; i++) { part1 += CHARS[n % CHARS.length]; n = Math.floor(n / CHARS.length); }
+  let h2 = 0x811c9dc5;
+  for (let i = 0; i < str.length; i++) { h2 ^= str.charCodeAt(i); h2 = Math.imul(h2, 0x01000193) >>> 0; }
+  n = h2;
+  for (let i = 0; i < 4; i++) { part2 += CHARS[n % CHARS.length]; n = Math.floor(n / CHARS.length); }
+  return 'YSN-' + part1 + '-' + part2;
+}
+
+// --- Riwayat kode yang sudah digenerate (simpan di localStorage admin) ---
+function getRiwayat() {
+  try { return JSON.parse(localStorage.getItem('riwayatKode') || '[]'); } catch(e) { return []; }
+}
+function simpanRiwayat(nama, hp, kode) {
+  const rwyt = getRiwayat();
+  rwyt.unshift({ nama, hp, kode, waktu: new Date().toLocaleString('id-ID') });
+  localStorage.setItem('riwayatKode', JSON.stringify(rwyt.slice(0, 200)));
+}
+
+// --- Cek Aktivasi di Lock Screen ---
+function cekKode() {
+  const nama  = document.getElementById('namaInput').value.trim();
+  const hp    = document.getElementById('hpInput').value.trim();
+  const kode  = document.getElementById('kodeInput').value.trim().toUpperCase();
+  const msg   = document.getElementById('lockMsg');
+
+  // Blokir sementara
+  const blockUntil = parseInt(localStorage.getItem('blockUntil') || '0');
+  if (Date.now() < blockUntil) {
+    const menit = Math.ceil((blockUntil - Date.now()) / 60000);
+    msg.textContent = '⏱ Diblokir, coba lagi dalam ' + menit + ' menit.';
+    return;
+  }
+
+  if (!nama || !hp) { msg.textContent = '⚠️ Isi Nama dan No HP terlebih dahulu!'; return; }
+  if (!kode)        { msg.textContent = '⚠️ Masukkan kode aktivasi!'; return; }
+
+  // Kode master POEDJIONO
+  if (kode === MASTER_CODE) { aktivasiApp(kode, nama); return; }
+
+  // Verifikasi: kode harus cocok dengan nama+hp
+  const kodaBenar = buatKodeUnik(nama, hp);
+  if (kode === kodaBenar) {
+    aktivasiApp(kode, nama);
+    return;
+  }
+
+  // Salah
+  wrongAttempts++;
+  if (wrongAttempts >= 5) {
+    localStorage.setItem('blockUntil', Date.now() + 30 * 60000);
+    wrongAttempts = 0;
+    msg.textContent = '🚫 Diblokir 30 menit karena salah 5x!';
+  } else {
+    msg.textContent = '❌ Kode tidak cocok dengan Nama/No HP! Sisa: ' + (5 - wrongAttempts) + 'x';
+  }
+}
+
+function aktivasiApp(code, nama) {
+  localStorage.setItem('aktivasi', '1');
+  localStorage.setItem('penggunaAktif', nama);
+  localStorage.setItem('waktuAktivasi', new Date().toLocaleString('id-ID'));
+  document.getElementById('lockScreen').style.display = 'none';
+  wrongAttempts = 0;
+}
+
+function cekAktivasi() {
+  if (localStorage.getItem('aktivasi') === '1') {
+    document.getElementById('lockScreen').style.display = 'none';
+  }
+}
+
+// --- Ketuk logo 5x untuk Admin ---
+document.getElementById('tapLogo').addEventListener('click', function() {
+  tapCount++;
+  clearTimeout(tapTimer);
+  if (tapCount >= 5) { tapCount = 0; bukaAdminPanel(); }
+  tapTimer = setTimeout(() => tapCount = 0, 2000);
+});
+
+function bukaAdminPanel() {
+  const pw = prompt('Password Admin POEDJIONO:');
+  if (pw !== 'POEDJIONO2026') { alert('Password salah!'); return; }
+  tampilRiwayat();
+  document.getElementById('adminPanel').style.display = 'block';
+}
+
+// --- Generate kode baru di Admin Panel ---
+function generateKodeBaru() {
+  const nama = document.getElementById('adminNama').value.trim();
+  const hp   = document.getElementById('adminHp').value.trim();
+  if (!nama || !hp) { alert('Isi Nama dan No HP terlebih dahulu!'); return; }
+
+  const kode = buatKodeUnik(nama, hp);
+  _genNama = nama; _genHp = hp; _genKode = kode;
+
+  document.getElementById('hasilNamaHp').textContent = nama + ' — ' + hp;
+  document.getElementById('hasilKode').textContent   = kode;
+  document.getElementById('hasilGenerate').style.display = 'block';
+
+  simpanRiwayat(nama, hp, kode);
+  tampilRiwayat();
+}
+
+function salinKode() {
+  navigator.clipboard.writeText(_genKode).then(()=>alert('Kode disalin: ' + _genKode));
+}
+
+function kirimViaWA() {
+  const hp  = _genHp.replace(/\D/g,'');
+  const wa  = hp.startsWith('0') ? '62' + hp.slice(1) : hp;
+  const msg = encodeURIComponent(
+    'Assalamu'alaikum ' + _genNama + ',
+
+' +
+    'Berikut kode aktivasi Aplikasi Jamaah Yasin Kuripan:
+
+' +
+    '👤 Nama   : ' + _genNama + '
+' +
+    '📱 No HP  : ' + _genHp + '
+' +
+    '🔑 Kode   : ' + _genKode + '
+
+' +
+    'Cara aktivasi:
+' +
+    '1. Buka aplikasi
+' +
+    '2. Isi Nama: ' + _genNama + '
+' +
+    '3. Isi No HP: ' + _genHp + '
+' +
+    '4. Isi Kode: ' + _genKode + '
+
+' +
+    'Dari: POEDJIONO (Admin Jamaah Yasin Kuripan)
+' +
+    'Jangan bagikan kode ini ke orang lain!'
+  );
+  window.open('https://wa.me/' + wa + '?text=' + msg, '_blank');
+}
+
+function tampilRiwayat() {
+  const rwyt = getRiwayat();
+  const list = document.getElementById('kodeList');
+  if (rwyt.length === 0) {
+    list.innerHTML = '<p style="color:#999;font-size:0.85rem;text-align:center">Belum ada kode yang dibuat</p>';
+    return;
+  }
+  list.innerHTML = '';
+  rwyt.forEach((r, i) => {
+    list.innerHTML += `
+      <div class="code-item">
+        <div class="info"><b>${i+1}. ${r.nama}</b> — ${r.hp}</div>
+        <div class="kode-val">${r.kode}</div>
+        <div class="info" style="color:#aaa">${r.waktu}</div>
+        <button class="btn-sm" style="background:#25D366;margin-top:4px" onclick="kirimUlangWA('${r.nama}','${r.hp}','${r.kode}')">📤 Kirim Ulang WA</button>
+      </div>`;
+  });
+}
+
+function kirimUlangWA(nama, hp, kode) {
+  _genNama = nama; _genHp = hp; _genKode = kode;
+  kirimViaWA();
+}
+
+function tutupAdmin() {
+  document.getElementById('adminPanel').style.display = 'none';
+}
+
+document.getElementById('kodeInput').addEventListener('keyup', function(e) {
+  if (e.key === 'Enter') cekKode();
+  this.value = this.value.toUpperCase().replace(/[^A-Z0-9-]/g, '');
+});
+
+// ============================================================
+// SUPABASE SETUP
+// ============================================================
+const SUPABASE_URL = 'https://nsvukmhnxyfakiqvxfta.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_8t1ZAdje54vzYC_jbmGhSA_kIpWiXE0';
+const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+function formatRupiah(n){return 'Rp '+(n||0).toLocaleString('id-ID');}
+
+// Load tahun & bulan
+const tahunSelect = document.getElementById('pilihTahun');
+const bulanSelect = document.getElementById('pilihBulan');
+for(let y=2023;y<=2030;y++){let o=document.createElement('option');o.value=y;o.text=y;tahunSelect.add(o);}
+['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'].forEach((m,i)=>{
+  let o=document.createElement('option');o.value=i+1;o.text=m;bulanSelect.add(o);
+});
+
+// ============================================================
+// ANGGOTA
+// ============================================================
+document.getElementById('anggotaForm').addEventListener('submit', async e=>{
+  e.preventDefault();
+  const nama=document.getElementById('nama').value;
+  const wa=document.getElementById('whatsapp').value;
+  const status=document.getElementById('status').value;
+  const ket=document.getElementById('keterangan').value;
+  await supabase.from('anggota').insert([{nama,whatsapp:wa,status,keterangan:ket}]);
+  document.getElementById('anggotaForm').reset();
+  loadAnggota();
+});
+
+async function loadAnggota(){
+  const {data}=await supabase.from('anggota').select('*');
+  if(!data) return;
+  const tbody=document.querySelector('#anggotaTable tbody');
+  tbody.innerHTML='';
+  const anggotaList=document.getElementById('anggotaList');
+  anggotaList.innerHTML='';
+  const pilihPertemuan=document.getElementById('pilihPertemuan');
+  pilihPertemuan.innerHTML='<option value="">-- Pilih Pertemuan --</option>';
+  data.forEach(a=>{
+    let tr=document.createElement('tr');
+    tr.innerHTML=`<td>${a.nama}</td><td><span class="badge">${a.status}</span></td><td>${a.keterangan||''}</td>
+    <td><button class="btn-sm waBtn" data-wa="${a.whatsapp}">WA</button></td>`;
+    tbody.appendChild(tr);
+    let cb=document.createElement('div');
+    cb.innerHTML=`<label><input type="checkbox" class="hadirChk" data-id="${a.id}"> ${a.nama}</label>`;
+    anggotaList.appendChild(cb);
+  });
+  document.querySelectorAll('.waBtn').forEach(btn=>{
+    btn.addEventListener('click',()=>{
+      const wa=btn.dataset.wa.replace(/\D/g,'');
+      const pesan=document.getElementById('pesanAdmin').value||'Assalamu\'alaikum, ini pesan dari Admin Jamaah Yasin Kuripan';
+      window.open('https://wa.me/'+wa+'?text='+encodeURIComponent(pesan),'_blank');
+      saveChat('POEDJIONO',wa,pesan);
+    });
+  });
+}
+
+// ============================================================
+// PERTEMUAN
+// ============================================================
+document.getElementById('pertemuanForm').addEventListener('submit', async e=>{
+  e.preventDefault();
+  const tgl=document.getElementById('tanggalPertemuan').value;
+  const rumah=document.getElementById('tuanRumah').value;
+  const iuran=parseInt(document.getElementById('iuran').value);
+  const ket=document.getElementById('keteranganPertemuan').value;
+  await supabase.from('pertemuan').insert([{tanggal:tgl,tuan_rumah:rumah,iuran_per_orang:iuran,keterangan:ket,total_hadir:0,total_iuran:0}]);
+  document.getElementById('pertemuanForm').reset();
+  loadPertemuan();
+});
+
+async function loadPertemuan(){
+  const {data}=await supabase.from('pertemuan').select('*').order('tanggal',{ascending:true});
+  if(!data) return;
+  const tbody=document.querySelector('#pertemuanTable tbody');
+  tbody.innerHTML='';
+  const sel=document.getElementById('pilihPertemuan');
+  const prev=sel.value;
+  sel.innerHTML='<option value="">-- Pilih Pertemuan --</option>';
+  data.forEach(p=>{
+    let tr=document.createElement('tr');
+    tr.innerHTML=`<td>${p.tanggal}</td><td>${p.tuan_rumah}</td><td>${formatRupiah(p.iuran_per_orang)}</td><td>${p.total_hadir}</td><td>${formatRupiah(p.total_iuran)}</td><td>${p.keterangan||''}</td>`;
+    tbody.appendChild(tr);
+    let opt=document.createElement('option');opt.value=p.id;opt.text=p.tanggal+' - '+p.tuan_rumah;sel.add(opt);
+  });
+  if(prev) sel.value=prev;
+}
+
+document.getElementById('absensiForm').addEventListener('submit', async e=>{
+  e.preventDefault();
+  const pid=document.getElementById('pilihPertemuan').value;
+  if(!pid){alert('Pilih pertemuan dulu!');return;}
+  const checked=[...document.querySelectorAll('.hadirChk:checked')].map(c=>c.dataset.id);
+  const {data:p}=await supabase.from('pertemuan').select('iuran_per_orang').eq('id',pid).single();
+  const total=checked.length*(p?.iuran_per_orang||0);
+  await supabase.from('pertemuan').update({total_hadir:checked.length,total_iuran:total}).eq('id',pid);
+  document.getElementById('totalIuranDisplay').textContent='Total Iuran: '+formatRupiah(total);
+  alert('Absensi tersimpan!');
+  loadPertemuan();
+});
+
+// ============================================================
+// PENGELUARAN
+// ============================================================
+document.getElementById('pengeluaranForm').addEventListener('submit', async e=>{
+  e.preventDefault();
+  const tgl=document.getElementById('tanggalPengeluaran').value;
+  const jenis=document.getElementById('jenisPengeluaran').value;
+  const nom=parseInt(document.getElementById('nominalPengeluaran').value);
+  const ket=document.getElementById('keteranganPengeluaran').value;
+  await supabase.from('pengeluaran').insert([{tanggal:tgl,jenis,nominal:nom,keterangan:ket}]);
+  document.getElementById('pengeluaranForm').reset();
+  loadPengeluaran();
+});
+
+async function loadPengeluaran(){
+  const {data}=await supabase.from('pengeluaran').select('*').order('tanggal',{ascending:false});
+  if(!data) return;
+  const tbody=document.querySelector('#pengeluaranTable tbody');
+  tbody.innerHTML='';
+  data.forEach(p=>{
+    let tr=document.createElement('tr');
+    tr.innerHTML=`<td>${p.tanggal}</td><td>${p.jenis}</td><td>${formatRupiah(p.nominal)}</td><td>${p.keterangan||''}</td>`;
+    tbody.appendChild(tr);
+  });
+  hitungSaldo();
+}
+
+async function hitungSaldo(){
+  const {data:pm}=await supabase.from('pertemuan').select('total_iuran');
+  const {data:pl}=await supabase.from('pengeluaran').select('nominal');
+  const masuk=(pm||[]).reduce((a,b)=>a+(b.total_iuran||0),0);
+  const keluar=(pl||[]).reduce((a,b)=>a+(b.nominal||0),0);
+  document.getElementById('saldoKas').textContent='Saldo Kas: '+formatRupiah(masuk-keluar);
+}
+
+// ============================================================
+// CHAT & WA
+// ============================================================
+async function saveChat(sender,wa,pesan){
+  await supabase.from('chat').insert([{sender,wa,pesan,tanggal:new Date().toISOString()}]);
+  loadChat();
+}
+
+async function loadChat(){
+  const {data}=await supabase.from('chat').select('*').order('tanggal',{ascending:true}).limit(50);
+  const chatBox=document.getElementById('chatBox');
+  chatBox.innerHTML='';
+  (data||[]).forEach(c=>{chatBox.innerHTML+=`<b>[${c.sender}]</b> ${c.pesan}<br>`;});
+  chatBox.scrollTop=chatBox.scrollHeight;
+}
+
+document.getElementById('kirimWA').addEventListener('click', async ()=>{
+  const pesan=document.getElementById('pesanAdmin').value||'Assalamu\'alaikum';
+  const {data}=await supabase.from('anggota').select('*');
+  if(!data||data.length===0){alert('Belum ada anggota!');return;}
+  let i=0;
+  data.forEach(a=>{
+    if(a.whatsapp){
+      setTimeout(()=>{
+        const wa=a.whatsapp.replace(/\D/g,'');
+        window.open('https://wa.me/'+wa+'?text='+encodeURIComponent(pesan),'_blank');
+        saveChat('POEDJIONO',wa,pesan);
+      },i*500);
+      i++;
+    }
+  });
+});
+
+// ============================================================
+// LAPORAN
+// ============================================================
+document.getElementById('tampilLaporan').addEventListener('click', async ()=>{
+  const bln=document.getElementById('pilihBulan').value;
+  const thn=document.getElementById('pilihTahun').value;
+  const {data}=await supabase.from('pertemuan').select('*');
+  if(!data) return;
+  const filtered=data.filter(p=>{
+    const d=new Date(p.tanggal);
+    return d.getMonth()+1==bln && d.getFullYear()==thn;
+  });
+  const tbody=document.querySelector('#laporanTable tbody');
+  tbody.innerHTML='';
+  filtered.forEach(p=>{
+    let tr=document.createElement('tr');
+    tr.innerHTML=`<td>${p.tanggal}<br><small>${p.tuan_rumah}</small></td><td>${p.total_hadir}</td><td>${formatRupiah(p.iuran_per_orang)}</td><td>${formatRupiah(p.total_iuran)}</td><td>${p.keterangan||''}</td>`;
+    tbody.appendChild(tr);
+  });
+});
+
+// ============================================================
+// PWA - INSTALL PROMPT
+// ============================================================
+let deferredPrompt;
+window.addEventListener('beforeinstallprompt', (e)=>{
+  e.preventDefault();
+  deferredPrompt=e;
+  document.getElementById('installBanner').style.display='block';
+});
+
+function installApp(){
+  if(!deferredPrompt) return;
+  deferredPrompt.prompt();
+  deferredPrompt.userChoice.then(()=>{ deferredPrompt=null; document.getElementById('installBanner').style.display='none'; });
+}
+
+// ============================================================
+// INIT
+// ============================================================
+cekAktivasi();
+loadAnggota();
+loadPertemuan();
+loadPengeluaran();
+loadChat();
+</script>
+</body>
+</html>
