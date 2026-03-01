@@ -1,0 +1,2 @@
+# JamaahYasinKuripan
+aplikasi yasin
