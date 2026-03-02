@@ -419,17 +419,26 @@
 // ============================================================
 // KONFIGURASI LOGIN / SECURITY
 // ============================================================
-// KODE RAHASIA ADMIN: 
-// Ganti 'PKL123' dengan kode apa saja yang Anda inginkan.
-// Kode ini harus Anda berikan manual ke anggota setelah mereka kirim Kode Request.
-const ADMIN_SECRET_CODE = 'PKL123'; 
+// PENTING: KUNCI INI HARUS SAMA PERSIS dengan yang ada di file admin-generator.html
+const SECRET_KEY = "POEDJIONO_KUNCI_PKL2023"; 
 
 function checkLoginStatus() {
   const isLoggedIn = localStorage.getItem('app_isLoggedIn');
   if (isLoggedIn === 'true') {
     document.getElementById('lockScreen').style.display = 'none';
-    initApp(); // Jalankan aplikasi jika sudah login
+    initApp();
   }
+}
+
+// Fungsi Hash (Harus sama persis dengan di Admin Generator)
+function simpleHash(str) {
+    let hash = 0;
+    for (let i = 0; i < str.length; i++) {
+      const char = str.charCodeAt(i);
+      hash = (hash << 5) - hash + char;
+      hash = hash & hash; 
+    }
+    return Math.abs(hash).toString(36).toUpperCase().substring(0, 6);
 }
 
 function generateRequestCode() {
@@ -441,51 +450,59 @@ function generateRequestCode() {
     return;
   }
 
-  // Buat kode unik sederhana (Contoh: REQ + 4 digit angka acak)
+  // Buat kode unik: REQ + 4 digit angka acak
   const randomCode = Math.floor(1000 + Math.random() * 9000);
   const requestString = `REQ-${randomCode}`;
   
+  // Simpan Request Code ini sementara di HP jamaah untuk nanti dicek
+  localStorage.setItem('temp_request_code', requestString);
+  localStorage.setItem('temp_user_nama', nama);
+  localStorage.setItem('temp_user_hp', hp);
+
   const display = document.getElementById('requestCodeDisplay');
   display.style.display = 'block';
   display.innerHTML = `
     <div>Kode Request Anda:</div>
-    <div style="font-size:1.5rem;font-weight:bold">${requestString}</div>
-    <div style="font-size:0.75rem;margin-top:5px">Screenshot/Kirim kode ini ke Admin Poedjiono untuk mendapatkan Kode Aktivasi.</div>
+    <div style="font-size:1.5rem;font-weight:bold;color:#2e7d32">${requestString}</div>
+    <div style="font-size:0.75rem;margin-top:5px">Screenshot/Kirim kode ini ke Admin Poedjiono via WhatsApp.</div>
   `;
-  
-  // Simpan data sementara
-  localStorage.setItem('temp_user_nama', nama);
-  localStorage.setItem('temp_user_hp', hp);
 }
 
 function verifyAndUnlock() {
-  const inputCode = document.getElementById('lockKode').value.trim();
-  const requestDisplay = document.getElementById('requestCodeDisplay');
-  
-  // Validasi: Pastikan user sudah generate request dulu
-  if(requestDisplay.style.display === 'none' || !localStorage.getItem('temp_user_nama')) {
+  const inputActivationCode = document.getElementById('lockKode').value.trim().toUpperCase();
+  const storedRequestCode = localStorage.getItem('temp_request_code');
+
+  // 1. Cek apakah jamaah sudah generate request
+  if(!storedRequestCode) {
     showToast("Silakan Generate Kode Request dulu!", "error");
     return;
   }
 
-  if(inputCode === ADMIN_SECRET_CODE) {
+  // 2. Hitung apa Kode Aktivasi yang SEHARUSNYA (berdasarkan request yang tersimpan)
+  // Logika: Hash(RequestCode + SecretKey)
+  const expectedCode = "ACT-" + simpleHash(storedRequestCode + SECRET_KEY);
+
+  // 3. Bandingkan input jamaah dengan hasil hitungan kita
+  if(inputActivationCode === expectedCode) {
     // Login Berhasil
     localStorage.setItem('app_isLoggedIn', 'true');
-    showToast("Login Berhasil! Selamat Datang.", "success");
+    showToast("Aktivasi Berhasil! Selamat Datang.", "success");
+    
+    // Bersihkan data sementara
+    localStorage.removeItem('temp_request_code');
     
     // Animasi buka kunci
     document.getElementById('lockScreen').style.opacity = '0';
     setTimeout(() => {
       document.getElementById('lockScreen').style.display = 'none';
-      initApp(); // Mulai aplikasi
+      initApp();
     }, 500);
   } else {
-    showToast("Kode Aktivasi Salah!", "error");
+    showToast("Kode Aktivasi Salah! Hubungi Admin.", "error");
     document.getElementById('lockKode').value = '';
     document.getElementById('lockKode').focus();
   }
 }
-
 // ============================================================
 // KONFIGURASI SUPABASE
 // ============================================================
