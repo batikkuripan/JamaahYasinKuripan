@@ -1,0 +1,809 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#4a5e23">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title id="pageTitle">Jamaah Yasin Kuripan</title>
+
+<!-- Library Supabase & Export Tools -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/supabase.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+<style>
+  /* ----- RESET & BASIC STYLE ----- */
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent; outline: none;}
+  body{
+    font-family:'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
+    margin:0;padding:0;
+    background:#f4f7f6;
+    color:#333;
+    padding-bottom: 80px; 
+    min-height: 100vh;
+  }
+
+  /* ----- LOCK SCREEN (LAYAR KUNCI) ----- */
+  #lockScreen{
+    position:fixed;top:0;left:0;width:100%;height:100%;
+    background:linear-gradient(135deg, #2c3e50, #4a5e23);
+    z-index:9999;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding:20px;
+  }
+  .lock-card{
+    background:#fff;
+    width:100%;max-width:380px;
+    padding:2rem;
+    border-radius:16px;
+    box-shadow:0 10px 30px rgba(0,0,0,0.3);
+    text-align:center;
+    animation: slideUp 0.5s ease;
+  }
+  @keyframes slideUp{from{transform:translateY(50px);opacity:0;}to{transform:translateY(0);opacity:1;}}
+  
+  .lock-logo{width:80px;height:80px;background:#4a5e23;color:#fff;border-radius:50%;margin:0 auto 1rem;display:flex;align-items:center;justify-content:center;font-size:2rem;font-weight:bold;}
+  .lock-step{margin-bottom:1.5rem;text-align:left;border-bottom:1px dashed #ccc;padding-bottom:1rem;}
+  .lock-step:last-child{border-bottom:none;padding-bottom:0;margin-bottom:0;}
+  .step-title{font-size:0.9rem;font-weight:bold;color:#4a5e23;margin-bottom:0.5rem;display:block;}
+  
+  #requestCodeDisplay{
+    background:#e8f5e9;
+    color:#2e7d32;
+    padding:10px;
+    border-radius:8px;
+    font-family:monospace;
+    font-size:1.2rem;
+    letter-spacing:2px;
+    margin-top:10px;
+    text-align:center;
+    border:1px solid #c8e6c9;
+    display:none;
+  }
+
+  /* ----- HEADER ----- */
+  header{
+    background:linear-gradient(135deg, #4a5e23, #6b8e23);
+    color:#fff;
+    padding:0.8rem 1rem;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    box-shadow:0 2px 10px rgba(0,0,0,0.2);
+    position:sticky;top:0;z-index:1000;
+  }
+  .header-left{display:flex;align-items:center;gap:0.8rem;flex:1;}
+  
+  .logo-container {
+    width: 55px; height: 55px; flex-shrink: 0; display: flex; align-items: center; justify-content: center;
+    background: #fff; border-radius: 50%; box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+    border: 2px solid rgba(255,255,255,0.3); overflow: hidden;
+  }
+  .header-logo-img{width: 80%; height: 80%; object-fit: contain; display: block;}
+  .header-logo-text{width: 55px; height: 55px; background:#fff; border-radius:50%; display:flex;align-items:center;justify-content:center; font-weight:bold;color:#4a5e23; font-size:0.9rem; box-shadow:0 2px 5px rgba(0,0,0,0.2); flex-shrink:0;}
+
+  .header-text h1{margin:0;font-size:1.1rem;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .header-text p{margin:2px 0 0;font-size:0.75rem;opacity:0.9;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  
+  .btn-settings{
+    background:rgba(255,255,255,0.2); border:none; color:white;
+    width:40px;height:40px; border-radius:50%; font-size:1.2rem;
+    cursor:pointer; display:flex;align-items:center;justify-content:center; transition:background 0.2s;
+  }
+  .btn-settings:active{background:rgba(255,255,255,0.4);transform:scale(0.95);}
+
+  /* ----- MODAL (POPUP PENGATURAN) ----- */
+  .modal-overlay{
+    display:none; position:fixed;top:0;left:0;width:100%;height:100%;
+    background:rgba(0,0,0,0.5); backdrop-filter:blur(4px); z-index:2000;
+    align-items:center;justify-content:center; opacity:0;transition:opacity 0.3s ease;
+  }
+  .modal-overlay.show{display:flex;opacity:1;}
+  .modal-content{
+    background:#fff; width:90%;max-width:400px; padding:1.5rem; border-radius:16px;
+    box-shadow:0 10px 25px rgba(0,0,0,0.2);
+    transform:scale(0.9);transition:transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  }
+  .modal-overlay.show .modal-content{transform:scale(1);}
+  .modal-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:1.5rem;}
+  .modal-header h3{margin:0;color:#4a5e23;font-size:1.2rem;}
+  .close-modal{background:none;border:none;font-size:1.5rem;color:#999;cursor:pointer;}
+
+  /* ----- LAYOUT & VIEWS ----- */
+  .app-view{display:none;padding:1rem;animation: fadeIn 0.3s ease;}
+  .app-view.active{display:block;}
+  @keyframes fadeIn{from{opacity:0;transform:translateY(5px);}to{opacity:1;transform:translateY(0);}}
+
+  h2{
+    color:#4a5e23; font-size:1.1rem; margin:1.5rem 0 0.8rem;
+    border-left:4px solid #4a5e23; padding-left:0.5rem;
+  }
+
+  /* ----- FORMS & INPUTS ----- */
+  .form-group{margin-bottom:0.8rem;}
+  label{display:block;font-size:0.8rem;color:#666;margin-bottom:2px;}
+  input, select, textarea{
+    width:100%; padding:12px; border:1px solid #ddd; border-radius:8px; font-size:1rem; background:#fff; transition:border 0.2s; appearance: none;
+  }
+  input:focus, select:focus, textarea:focus{
+    border-color:#4a5e23; box-shadow:0 0 0 3px rgba(74, 94, 35, 0.1);
+  }
+
+  /* ----- BUTTONS ----- */
+  button{
+    width:100%; padding:12px; margin-top:0.5rem; background:#4a5e23; color:white; border:none; border-radius:8px; font-size:1rem; font-weight:600; cursor:pointer; box-shadow:0 2px 5px rgba(74, 94, 35, 0.3); display:flex;align-items:center;justify-content:center;gap:8px;
+  }
+  button:active{transform:scale(0.98);background:#3a4b1b;}
+  button.btn-secondary{background:#fff;color:#4a5e23;border:1px solid #4a5e23;}
+  button.btn-sm{width:auto;padding:6px 12px;font-size:0.8rem;border-radius:20px;}
+  button.danger{background:#c0392b;box-shadow:0 2px 5px rgba(192, 57, 43, 0.3);}
+  button.success{background:#27ae60;box-shadow:0 2px 5px rgba(39, 174, 96, 0.3);}
+  .btn-group{display:grid;grid-template-columns:1fr 1fr;gap:0.5rem;}
+
+  /* ----- TABLES ----- */
+  .table-container{overflow-x:auto;border-radius:8px;box-shadow:0 1px 3px rgba(0,0,0,0.1);margin-top:0.5rem;}
+  table{width:100%;border-collapse:collapse;background:#fff;font-size:0.9rem;}
+  th{background:#4a5e23;color:#fff;padding:10px;text-align:left;white-space:nowrap;}
+  td{padding:10px;border-bottom:1px solid #eee;color:#444;}
+  tr:last-child td{border-bottom:none;}
+
+  /* ----- BADGES & CARDS ----- */
+  .badge{display:inline-block;padding:3px 8px;border-radius:12px;font-size:0.7rem;background:#e8f5e9;color:#2e7d32;font-weight:bold;}
+  .card{background:#fff;padding:1rem;border-radius:8px;box-shadow:0 1px 3px rgba(0,0,0,0.1);margin-bottom:1rem;}
+  .stat-box{text-align:center;}
+  .stat-value{font-size:1.5rem;font-weight:bold;color:#4a5e23;}
+  .stat-label{font-size:0.8rem;color:#777;}
+
+  /* ----- BOTTOM NAVIGATION ----- */
+  .bottom-nav{
+    position:fixed;bottom:0;left:0;width:100%; background:#fff; display:flex;justify-content:space-around; padding:8px 0; box-shadow:0 -2px 10px rgba(0,0,0,0.05); z-index:1000; padding-bottom: max(8px, env(safe-area-inset-bottom));
+  }
+  .nav-item{border:none;background:none;color:#888; font-size:0.7rem; display:flex;flex-direction:column;align-items:center;gap:4px; flex:1; cursor:pointer;}
+  .nav-item span{font-size:1.4rem;}
+  .nav-item.active{color:#4a5e23;}
+
+  /* ----- TOAST NOTIFICATION ----- */
+  #toast-container{position:fixed;bottom:90px;left:50%;transform:translateX(-50%); z-index:2000;display:flex;flex-direction:column;gap:10px; width:90%;max-width:400px;pointer-events:none;}
+  .toast{background:rgba(30,30,30,0.9); color:#fff; padding:12px 20px; border-radius:50px; font-size:0.9rem; text-align:center; box-shadow:0 4px 12px rgba(0,0,0,0.15); opacity:0;transform:translateY(20px); transition:all 0.3s ease; pointer-events:auto; display:flex;align-items:center;justify-content:center;gap:8px;}
+  .toast.show{opacity:1;transform:translateY(0);}
+  .toast.success{background:rgba(39, 174, 96, 0.95);}
+  .toast.error{background:rgba(192, 57, 43, 0.95);}
+
+  /* ----- INSTALL BANNER ----- */
+  #installBanner{display:none; background:#ff8c00;color:#fff; padding:12px 1rem; text-align:center; font-size:0.85rem; position:sticky;top:0;z-index:999; box-shadow:0 2px 5px rgba(0,0,0,0.1);}
+  #installBanner button{background:#fff;color:#ff8c00; width:auto;padding:5px 15px;margin:0 5px; font-size:0.8rem;border-radius:20px;}
+
+  /* ----- CHAT BOX ----- */
+  .chat-box{border:1px solid #eee; background:#fafafa; padding:10px; height:150px; overflow-y:auto; border-radius:8px; font-size:0.85rem; margin-top:10px;}
+  .chat-msg{margin-bottom:5px;border-bottom:1px dashed #eee;padding-bottom:2px;}
+
+</style>
+</head>
+<body>
+
+<!-- LOCK SCREEN (LAYAR LOGIN) -->
+<div id="lockScreen">
+  <div class="lock-card">
+    <div class="lock-logo">🔒</div>
+    <h2 style="text-align:center;border:none;padding:0">Akses Terkunci</h2>
+    <p style="font-size:0.9rem;color:#666;margin-bottom:1.5rem">Silakan daftar dan minta izin akses ke Admin.</p>
+
+    <!-- BAGIAN 1: IDENTITAS & GENERATE KODE -->
+    <div class="lock-step">
+      <span class="step-title">1. Identitas & Kode Request</span>
+      <input type="text" id="lockNama" placeholder="Nama Lengkap" style="margin-bottom:0.5rem">
+      <input type="tel" id="lockHP" placeholder="Nomor WhatsApp" style="margin-bottom:0.5rem">
+      <button onclick="generateRequestCode()" class="btn-secondary" style="background:#e0e0e0;color:#333;font-weight:normal">⚡ Generate Kode Request</button>
+      
+      <div id="requestCodeDisplay"></div>
+    </div>
+
+    <!-- BAGIAN 2: INPUT KODE AKTIVASI -->
+    <div class="lock-step">
+      <span class="step-title">2. Aktivasi dari Admin</span>
+      <p style="font-size:0.8rem;color:#777;margin:5px 0">Masukkan kode yang diberikan Admin Poedjiono:</p>
+      <input type="text" id="lockKode" placeholder="Kode Aktivasi" style="letter-spacing:2px;text-align:center;font-weight:bold">
+      <button onclick="verifyAndUnlock()" class="success">🔓 Buka Aplikasi</button>
+    </div>
+  </div>
+</div>
+
+<!-- NOTIFICATION CONTAINER -->
+<div id="toast-container"></div>
+
+<!-- INSTALL PROMPT -->
+<div id="installBanner">
+  📱 <strong>Install Aplikasi</strong> agar lebih mudah diakses!
+  <button onclick="installApp()">Install</button>
+  <button style="background:transparent;color:#fff;box-shadow:none;width:auto;padding:5px;" onclick="this.parentElement.style.display='none'">✕</button>
+</div>
+
+<!-- HEADER -->
+<header>
+  <div class="header-left">
+    <!-- CONTAINER LOGO PRESISI -->
+    <div class="logo-container">
+      <img src="logo.png" id="realLogo" class="header-logo-img" alt="Logo" onerror="this.parentElement.style.display='none'; document.getElementById('fallbackLogo').style.display='flex'">
+    </div>
+    <div id="fallbackLogo" class="header-logo-text" style="display:none">NU</div>
+    
+    <div class="header-text">
+      <h1 id="headerTitle">Jamaah Yasin Kuripan</h1>
+      <p id="headerAddress">Kuripan Lor Gg 20 Pekalongan</p>
+    </div>
+  </div>
+  <button class="btn-settings" onclick="openSettings()">⚙️</button>
+</header>
+
+<!-- MODAL PENGATURAN (POPUP) -->
+<div id="settingsModal" class="modal-overlay">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h3>⚙️ Pengaturan Aplikasi</h3>
+      <button class="close-modal" onclick="closeSettings()">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label>Nama Grup / Jamaah</label>
+        <input type="text" id="settingGroupName" placeholder="Contoh: Jamaah Yasin Kuripan">
+      </div>
+      <div class="form-group">
+        <label>Alamat / Lokasi</label>
+        <input type="text" id="settingAddress" placeholder="Contoh: Kuripan Lor Gg 20 Pekalongan">
+      </div>
+      <button onclick="saveSettings()" class="success">💾 Simpan Perubahan</button>
+      <button onclick="resetSettings()" class="btn-secondary" style="margin-top:10px">↺ Kembali ke Default</button>
+    </div>
+  </div>
+</div>
+
+<!-- MAIN CONTENT AREA -->
+<main>
+
+  <!-- VIEW 1: ANGGOTA -->
+  <div id="view-anggota" class="app-view active">
+    <h2>👥 Data Anggota</h2>
+    <form id="anggotaForm">
+      <div class="form-group">
+        <input type="text" id="nama" placeholder="Nama Lengkap" required>
+      </div>
+      <div class="form-group">
+        <input type="text" id="whatsapp" placeholder="No WhatsApp (62...)" required>
+      </div>
+      <div class="form-group">
+        <select id="status">
+          <option value="Anggota">Anggota</option>
+          <option value="Pemuka">Pemuka / Sesepuh</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <input type="text" id="keterangan" placeholder="Keterangan (Opsional)">
+      </div>
+      <button type="submit">➕ Tambah Anggota</button>
+    </form>
+
+    <div class="table-container">
+      <table id="anggotaTable">
+        <thead><tr><th>Nama</th><th>Status</th><th>Aksi</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- VIEW 2: PERTEMUAN & ABSENSI -->
+  <div id="view-pertemuan" class="app-view">
+    <h2>📅 Pertemuan</h2>
+    <div class="card">
+      <form id="pertemuanForm">
+        <input type="date" id="tanggalPertemuan" required>
+        <input type="text" id="tuanRumah" placeholder="Tuan Rumah" required>
+        <input type="number" id="iuran" value="15000" required>
+        <input type="text" id="keteranganPertemuan" placeholder="Keterangan (Opsional)">
+        <button type="submit">Buat Pertemuan Baru</button>
+      </form>
+    </div>
+
+    <h3>Daftar Pertemuan</h3>
+    <div class="table-container">
+      <table id="pertemuanTable">
+        <thead><tr><th>Tgl</th><th>Rumah</th><th>Uang</th><th>Hadir</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <h2>✅ Absensi</h2>
+    <div class="card">
+      <select id="pilihPertemuan" style="margin-bottom:1rem">
+        <option value="">-- Pilih Pertemuan --</option>
+      </select>
+      <div id="anggotaList" style="max-height:200px;overflow-y:auto;background:#f9f9f9;padding:10px;border-radius:8px;border:1px solid #eee"></div>
+      <div style="margin-top:10px;display:flex;justify-content:space-between;align-items:center">
+        <strong id="totalIuranDisplay" style="color:#4a5e23">Total: Rp 0</strong>
+      </div>
+      <button id="btnSimpanAbsen">Simpan Absensi</button>
+    </div>
+  </div>
+
+  <!-- VIEW 3: KAS & PENGELUARAN -->
+  <div id="view-kas" class="app-view">
+    <h2>💰 Saldo Kas</h2>
+    <div class="card stat-box">
+      <div class="stat-value" id="saldoKas">Rp 0</div>
+      <div class="stat-label">Saldo Saat Ini</div>
+    </div>
+
+    <h2>📝 Catat Pengeluaran</h2>
+    <div class="card">
+      <form id="pengeluaranForm">
+        <input type="date" id="tanggalPengeluaran" required>
+        <input type="text" id="jenisPengeluaran" placeholder="Jenis Pengeluaran" required>
+        <input type="number" id="nominalPengeluaran" placeholder="Nominal (Rp)" required>
+        <input type="text" id="keteranganPengeluaran" placeholder="Keterangan">
+        <button type="submit" class="danger">Catat Pengeluaran</button>
+      </form>
+    </div>
+
+    <h3>Riwayat Pengeluaran</h3>
+    <div class="table-container">
+      <table id="pengeluaranTable">
+        <thead><tr><th>Tanggal</th><th>Jenis</th><th>Nominal</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- VIEW 4: LAPORAN & ADMIN -->
+  <div id="view-laporan" class="app-view">
+    <h2>📊 Laporan Bulanan</h2>
+    <div class="card">
+      <div class="btn-group">
+        <select id="pilihBulan"></select>
+        <select id="pilihTahun"></select>
+      </div>
+      <button id="tampilLaporan" class="btn-secondary">Tampilkan Data</button>
+      <div style="margin-top:0.5rem;display:flex;gap:0.5rem">
+        <button id="exportExcel" class="success" style="flex:1">📗 Excel</button>
+        <button id="exportPDF" class="danger" style="flex:1">📕 PDF</button>
+      </div>
+    </div>
+    
+    <div class="table-container">
+      <table id="laporanTable">
+        <thead><tr><th>Pertemuan</th><th>Hadir</th><th>Total</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <h2>📢 Kirim Pesan WA</h2>
+    <div class="card">
+      <textarea id="pesanAdmin" placeholder="Tulis pesan untuk anggota..." rows="3"></textarea>
+      <button id="kirimWA">📤 Kirim ke Semua Anggota</button>
+      <div class="chat-box" id="chatBox"></div>
+    </div>
+  </div>
+
+</main>
+
+<!-- BOTTOM NAVIGATION -->
+<nav class="bottom-nav">
+  <div class="nav-item active" onclick="switchView('anggota', this)">
+    <span>👥</span>
+    <div>Anggota</div>
+  </div>
+  <div class="nav-item" onclick="switchView('pertemuan', this)">
+    <span>📅</span>
+    <div>Pertemuan</div>
+  </div>
+  <div class="nav-item" onclick="switchView('kas', this)">
+    <span>💰</span>
+    <div>Kas</div>
+  </div>
+  <div class="nav-item" onclick="switchView('laporan', this)">
+    <span>📊</span>
+    <div>Laporan</div>
+  </div>
+</nav>
+
+<!-- FOOTER DIUBAH -->
+<footer style="text-align:center;padding:1.5rem 1rem;color:#777;font-size:0.75rem;margin-top:2rem;background:#fff;border-top:1px solid #eee">
+  &copy; 2023 <span id="footerGroup">Jamaah Yasin Kuripan</span><br>
+  <strong style="color:#4a5e23; margin-top:5px; display:block">Pembuat APK: Poedjiono Pekalongan</strong>
+</footer>
+
+<script>
+// ============================================================
+// KONFIGURASI LOGIN / SECURITY
+// ============================================================
+// KODE RAHASIA ADMIN: 
+// Ganti 'PKL123' dengan kode apa saja yang Anda inginkan.
+// Kode ini harus Anda berikan manual ke anggota setelah mereka kirim Kode Request.
+const ADMIN_SECRET_CODE = 'PKL123'; 
+
+function checkLoginStatus() {
+  const isLoggedIn = localStorage.getItem('app_isLoggedIn');
+  if (isLoggedIn === 'true') {
+    document.getElementById('lockScreen').style.display = 'none';
+    initApp(); // Jalankan aplikasi jika sudah login
+  }
+}
+
+function generateRequestCode() {
+  const nama = document.getElementById('lockNama').value.trim();
+  const hp = document.getElementById('lockHP').value.trim();
+
+  if(!nama || !hp) {
+    showToast("Nama dan No HP harus diisi!", "error");
+    return;
+  }
+
+  // Buat kode unik sederhana (Contoh: REQ + 4 digit angka acak)
+  const randomCode = Math.floor(1000 + Math.random() * 9000);
+  const requestString = `REQ-${randomCode}`;
+  
+  const display = document.getElementById('requestCodeDisplay');
+  display.style.display = 'block';
+  display.innerHTML = `
+    <div>Kode Request Anda:</div>
+    <div style="font-size:1.5rem;font-weight:bold">${requestString}</div>
+    <div style="font-size:0.75rem;margin-top:5px">Screenshot/Kirim kode ini ke Admin Poedjiono untuk mendapatkan Kode Aktivasi.</div>
+  `;
+  
+  // Simpan data sementara
+  localStorage.setItem('temp_user_nama', nama);
+  localStorage.setItem('temp_user_hp', hp);
+}
+
+function verifyAndUnlock() {
+  const inputCode = document.getElementById('lockKode').value.trim();
+  const requestDisplay = document.getElementById('requestCodeDisplay');
+  
+  // Validasi: Pastikan user sudah generate request dulu
+  if(requestDisplay.style.display === 'none' || !localStorage.getItem('temp_user_nama')) {
+    showToast("Silakan Generate Kode Request dulu!", "error");
+    return;
+  }
+
+  if(inputCode === ADMIN_SECRET_CODE) {
+    // Login Berhasil
+    localStorage.setItem('app_isLoggedIn', 'true');
+    showToast("Login Berhasil! Selamat Datang.", "success");
+    
+    // Animasi buka kunci
+    document.getElementById('lockScreen').style.opacity = '0';
+    setTimeout(() => {
+      document.getElementById('lockScreen').style.display = 'none';
+      initApp(); // Mulai aplikasi
+    }, 500);
+  } else {
+    showToast("Kode Aktivasi Salah!", "error");
+    document.getElementById('lockKode').value = '';
+    document.getElementById('lockKode').focus();
+  }
+}
+
+// ============================================================
+// KONFIGURASI SUPABASE
+// ============================================================
+const SUPABASE_URL = 'https://nsvukmhnxyfakiqvxfta.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_8t1ZAdje54vzYC_jbmGhSA_kIpWiXE0';
+const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+const DEFAULT_CONFIG = {
+  name: "Jamaah Yasin Kuripan",
+  address: "Kuripan Lor Gg 20 Pekalongan"
+};
+
+// ============================================================
+// INIT APLIKASI (Hanya jalan jika sudah login)
+// ============================================================
+function initApp() {
+  loadAppConfig();
+  loadAnggota();
+  loadPertemuan();
+  loadPengeluaran();
+  loadChat();
+  hitungSaldo();
+}
+
+// Cek login saat halaman dimuat
+checkLoginStatus();
+
+// ============================================================
+// SISTEM PENGATURAN (SETTINGS)
+// ============================================================
+function loadAppConfig() {
+  const savedConfig = localStorage.getItem('appConfig');
+  let config = DEFAULT_CONFIG;
+  if (savedConfig) { try { config = JSON.parse(savedConfig); } catch(e){} }
+  document.getElementById('headerTitle').textContent = config.name;
+  document.getElementById('headerAddress').textContent = config.address;
+  document.getElementById('pageTitle').textContent = config.name;
+  document.getElementById('footerGroup').textContent = config.name;
+  document.getElementById('settingGroupName').value = config.name;
+  document.getElementById('settingAddress').value = config.address;
+}
+
+function openSettings() {
+  document.getElementById('settingGroupName').value = document.getElementById('headerTitle').textContent;
+  document.getElementById('settingAddress').value = document.getElementById('headerAddress').textContent;
+  document.getElementById('settingsModal').classList.add('show');
+}
+
+function closeSettings() { document.getElementById('settingsModal').classList.remove('show'); }
+
+function saveSettings() {
+  const newName = document.getElementById('settingGroupName').value.trim();
+  const newAddr = document.getElementById('settingAddress').value.trim();
+  if(!newName) return showToast("Nama tidak boleh kosong!", "error");
+  localStorage.setItem('appConfig', JSON.stringify({name: newName, address: newAddr}));
+  loadAppConfig();
+  closeSettings();
+  showToast("Pengaturan disimpan!", "success");
+}
+
+function resetSettings() {
+  if(confirm("Reset ke default?")) {
+    localStorage.removeItem('appConfig');
+    loadAppConfig();
+    closeSettings();
+    showToast("Reset berhasil.", "normal");
+  }
+}
+
+function formatRupiah(n){return 'Rp '+(n||0).toLocaleString('id-ID');}
+
+function showToast(message, type = 'normal') {
+  const container = document.getElementById('toast-container');
+  const toast = document.createElement('div');
+  toast.className = `toast ${type}`;
+  toast.innerHTML = type === 'success' ? `✅ ${message}` : type === 'error' ? `❌ ${message}` : `ℹ️ ${message}`;
+  container.appendChild(toast);
+  requestAnimationFrame(() => toast.classList.add('show'));
+  setTimeout(() => { toast.classList.remove('show'); setTimeout(() => toast.remove(), 300); }, 3000);
+}
+
+function switchView(viewName, navElement) {
+  document.querySelectorAll('.app-view').forEach(el => el.classList.remove('active'));
+  document.getElementById(`view-${viewName}`).classList.add('active');
+  document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+  navElement.classList.add('active');
+  if(viewName === 'kas') hitungSaldo();
+}
+
+// Init Tahun & Bulan
+const tahunSelect = document.getElementById('pilihTahun');
+const bulanSelect = document.getElementById('pilihBulan');
+const currentYear = new Date().getFullYear();
+for(let y=currentYear-2;y<=currentYear+2;y++){
+  let o=document.createElement('option');o.value=y;o.text=y;if(y===currentYear) o.selected=true;tahunSelect.add(o);
+}
+['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'].forEach((m,i)=>{
+  let o=document.createElement('option');o.value=i+1;o.text=m;if(i+1 === (new Date().getMonth()+1)) o.selected=true;bulanSelect.add(o);
+});
+
+// ============================================================
+// LOGIKA ANGGOTA
+// ============================================================
+document.getElementById('anggotaForm').addEventListener('submit', async e=>{
+  e.preventDefault();
+  const nama=document.getElementById('nama').value;
+  const wa=document.getElementById('whatsapp').value;
+  const status=document.getElementById('status').value;
+  const ket=document.getElementById('keterangan').value;
+  const {error} = await supabase.from('anggota').insert([{nama,whatsapp:wa,status,keterangan:ket}]);
+  if(error) { showToast('Gagal menambah anggota', 'error'); return; }
+  document.getElementById('anggotaForm').reset();
+  showToast('Anggota berhasil ditambahkan', 'success');
+  loadAnggota();
+});
+
+async function loadAnggota(){
+  const {data}=await supabase.from('anggota').select('*');
+  if(!data) return;
+  const tbody=document.querySelector('#anggotaTable tbody'); tbody.innerHTML='';
+  const anggotaList=document.getElementById('anggotaList'); anggotaList.innerHTML='';
+  data.forEach(a=>{
+    let tr=document.createElement('tr');
+    tr.innerHTML=`<td><div style="font-weight:bold">${a.nama}</div><div style="font-size:0.75rem;color:#666">${a.whatsapp}</div></td><td><span class="badge">${a.status}</span></td><td><button class="btn-sm waBtn" data-wa="${a.whatsapp}">WA</button></td>`;
+    tbody.appendChild(tr);
+    let cb=document.createElement('div'); cb.style.marginBottom = "5px";
+    cb.innerHTML=`<label style="display:flex;align-items:center;gap:8px;background:#fff;padding:5px;border-radius:4px;border:1px solid #eee"><input type="checkbox" class="hadirChk" data-id="${a.id}" style="width:18px;height:18px;margin:0"> <span>${a.nama}</span></label>`;
+    anggotaList.appendChild(cb);
+  });
+  document.querySelectorAll('.waBtn').forEach(btn=>{
+    btn.addEventListener('click',()=>{
+      const wa=btn.dataset.wa.replace(/\D/g,'');
+      const pesan=document.getElementById('pesanAdmin').value||'Assalamu\'alaikum';
+      window.open('https://wa.me/'+wa+'?text='+encodeURIComponent(pesan),'_blank');
+      saveChat('Admin',wa,pesan);
+    });
+  });
+}
+
+// ============================================================
+// LOGIKA PERTEMUAN
+// ============================================================
+document.getElementById('pertemuanForm').addEventListener('submit', async e=>{
+  e.preventDefault();
+  const tgl=document.getElementById('tanggalPertemuan').value;
+  const rumah=document.getElementById('tuanRumah').value;
+  const iuran=parseInt(document.getElementById('iuran').value);
+  const ket=document.getElementById('keteranganPertemuan').value;
+  await supabase.from('pertemuan').insert([{tanggal:tgl,tuan_rumah:rumah,iuran_per_orang:iuran,keterangan:ket,total_hadir:0,total_iuran:0}]);
+  document.getElementById('pertemuanForm').reset();
+  showToast('Pertemuan dibuat', 'success');
+  loadPertemuan();
+});
+
+async function loadPertemuan(){
+  const {data}=await supabase.from('pertemuan').select('*').order('tanggal',{ascending:false});
+  if(!data) return;
+  const tbody=document.querySelector('#pertemuanTable tbody'); tbody.innerHTML='';
+  const sel=document.getElementById('pilihPertemuan'); const prev=sel.value;
+  sel.innerHTML='<option value="">-- Pilih Pertemuan --</option>';
+  data.forEach(p=>{
+    let tr=document.createElement('tr');
+    tr.innerHTML=`<td>${p.tanggal}</td><td>${p.tuan_rumah}</td><td>${formatRupiah(p.iuran_per_orang)}</td><td>${p.total_hadir}</td>`;
+    tbody.appendChild(tr);
+    let opt=document.createElement('option'); opt.value=p.id; opt.text=p.tanggal+' - '+p.tuan_rumah; sel.add(opt);
+  });
+  if(prev) sel.value=prev;
+}
+
+document.getElementById('btnSimpanAbsen').addEventListener('click', async ()=>{
+  const pid=document.getElementById('pilihPertemuan').value;
+  if(!pid){showToast('Pilih pertemuan dulu!', 'error');return;}
+  const checked=[...document.querySelectorAll('.hadirChk:checked')].map(c=>c.dataset.id);
+  const {data:p}=await supabase.from('pertemuan').select('iuran_per_orang').eq('id',pid).single();
+  const total=checked.length*(p?.iuran_per_orang||0);
+  await supabase.from('pertemuan').update({total_hadir:checked.length,total_iuran:total}).eq('id',pid);
+  document.getElementById('totalIuranDisplay').textContent='Total: '+formatRupiah(total);
+  showToast(`Absensi tersimpan! (${checked.length} orang)`, 'success');
+  loadPertemuan(); hitungSaldo();
+});
+
+// ============================================================
+// LOGIKA PENGELUARAN
+// ============================================================
+document.getElementById('pengeluaranForm').addEventListener('submit', async e=>{
+  e.preventDefault();
+  const tgl=document.getElementById('tanggalPengeluaran').value;
+  const jenis=document.getElementById('jenisPengeluaran').value;
+  const nom=parseInt(document.getElementById('nominalPengeluaran').value);
+  const ket=document.getElementById('keteranganPengeluaran').value;
+  await supabase.from('pengeluaran').insert([{tanggal:tgl,jenis,nominal:nom,keterangan:ket}]);
+  document.getElementById('pengeluaranForm').reset();
+  showToast('Pengeluaran dicatat', 'success');
+  loadPengeluaran();
+});
+
+async function loadPengeluaran(){
+  const {data}=await supabase.from('pengeluaran').select('*').order('tanggal',{ascending:false});
+  if(!data) return;
+  const tbody=document.querySelector('#pengeluaranTable tbody'); tbody.innerHTML='';
+  data.forEach(p=>{
+    let tr=document.createElement('tr');
+    tr.innerHTML=`<td>${p.tanggal}</td><td>${p.jenis}</td><td>${formatRupiah(p.nominal)}</td>`;
+    tbody.appendChild(tr);
+  });
+  hitungSaldo();
+}
+
+async function hitungSaldo(){
+  const {data:pm}=await supabase.from('pertemuan').select('total_iuran');
+  const {data:pl}=await supabase.from('pengeluaran').select('nominal');
+  const masuk=(pm||[]).reduce((a,b)=>a+(b.total_iuran||0),0);
+  const keluar=(pl||[]).reduce((a,b)=>a+(b.nominal||0),0);
+  const saldo = masuk - keluar;
+  document.getElementById('saldoKas').textContent=formatRupiah(saldo);
+}
+
+// ============================================================
+// LOGIKA CHAT & WA
+// ============================================================
+async function saveChat(sender,wa,pesan){
+  await supabase.from('chat').insert([{sender,wa,pesan,tanggal:new Date().toISOString()}]);
+  loadChat();
+}
+async function loadChat(){
+  const {data}=await supabase.from('chat').select('*').order('tanggal',{ascending:true}).limit(20);
+  const chatBox=document.getElementById('chatBox'); chatBox.innerHTML='';
+  (data||[]).forEach(c=>{chatBox.innerHTML+=`<div class="chat-msg"><b>[${c.sender}]</b> ${c.pesan}</div>`;});
+  chatBox.scrollTop=chatBox.scrollHeight;
+}
+document.getElementById('kirimWA').addEventListener('click', async ()=>{
+  const pesan=document.getElementById('pesanAdmin').value||'Assalamu\'alaikum';
+  const {data}=await supabase.from('anggota').select('*');
+  if(!data||data.length===0){showToast('Belum ada anggota!', 'error');return;}
+  showToast(`Mengirim pesan ke ${data.length} anggota...`, 'normal');
+  let i=0;
+  data.forEach(a=>{
+    if(a.whatsapp){
+      setTimeout(()=>{
+        const wa=a.whatsapp.replace(/\D/g,'');
+        window.open('https://wa.me/'+wa+'?text='+encodeURIComponent(pesan),'_blank');
+        saveChat('Admin',wa,pesan);
+      },i*500); i++;
+    }
+  });
+});
+
+// ============================================================
+// LOGIKA LAPORAN
+// ============================================================
+document.getElementById('tampilLaporan').addEventListener('click', async ()=>{
+  const bln=document.getElementById('pilihBulan').value;
+  const thn=document.getElementById('pilihTahun').value;
+  const {data}=await supabase.from('pertemuan').select('*');
+  if(!data) return;
+  const filtered=data.filter(p=>{ const d=new Date(p.tanggal); return d.getMonth()+1==bln && d.getFullYear()==thn; });
+  const tbody=document.querySelector('#laporanTable tbody'); tbody.innerHTML='';
+  if(filtered.length === 0) { tbody.innerHTML = '<tr><td colspan="3" style="text-align:center">Tidak ada data</td></tr>'; return; }
+  filtered.forEach(p=>{
+    let tr=document.createElement('tr');
+    tr.innerHTML=`<td>${p.tanggal}<br><small>${p.tuan_rumah}</small></td><td>${p.total_hadir}</td><td>${formatRupiah(p.total_iuran)}</td>`;
+    tbody.appendChild(tr);
+  });
+});
+document.getElementById('exportExcel').addEventListener('click', () => {
+   const table = document.getElementById('laporanTable');
+   const wb = XLSX.utils.table_to_book(table, {sheet:"Laporan"});
+   XLSX.writeFile(wb, 'Laporan_Yasin.xlsx');
+});
+document.getElementById('exportPDF').addEventListener('click', () => {
+   const { jsPDF } = window.jspdf;
+   const doc = new jsPDF();
+   const groupName = document.getElementById('headerTitle').textContent;
+   doc.text(`Laporan ${groupName}`, 10, 10);
+   doc.text("Bulan: " + document.getElementById('pilihBulan').options[document.getElementById('pilihBulan').selectedIndex].text, 10, 20);
+   let y = 30; doc.text("Tanggal | Tuan Rumah | Hadir | Total", 10, y); y+=10;
+   const rows = document.querySelectorAll('#laporanTable tbody tr');
+   rows.forEach(r => {
+     const cols = r.querySelectorAll('td');
+     if(cols.length > 0) {
+       const text = `${cols[0].innerText} | ${cols[1].innerText} | ${cols[2].innerText}`;
+       doc.text(text, 10, y, { maxWidth: 180 }); y+=10;
+     }
+   });
+   doc.save("Laporan_Yasin.pdf");
+});
+
+// ============================================================
+// PWA & INSTALL LOGIC
+// ============================================================
+let deferredPrompt;
+const manifestData = {
+  "name": document.getElementById('pageTitle').textContent,
+  "short_name": "Yasin App",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#f4f7f6",
+  "theme_color": "#4a5e23",
+  "icons": [
+    { "src": "https://picsum.photos/seed/yasin192/192/192", "sizes": "192x192", "type": "image/png" },
+    { "src": "https://picsum.photos/seed/yasin512/512/512", "sizes": "512x512", "type": "image/png" }
+  ]
+};
+const stringManifest = JSON.stringify(manifestData);
+const blobManifest = new Blob([stringManifest], {type: 'application/json'});
+const manifestURL = URL.createObjectURL(blobManifest);
+const link = document.createElement('link'); link.rel = 'manifest'; link.href = manifestURL; document.head.appendChild(link);
+window.addEventListener('beforeinstallprompt', (e)=>{
+  e.preventDefault(); deferredPrompt=e; document.getElementById('installBanner').style.display='block';
+});
+function installApp(){
+  if(!deferredPrompt) return;
+  deferredPrompt.prompt();
+  deferredPrompt.userChoice.then((choiceResult)=>{
+    if (choiceResult.outcome === 'accepted') { console.log('User accepted the A2HS prompt'); }
+    deferredPrompt=null; document.getElementById('installBanner').style.display='none';
+  });
+}
+</script>
+</body>
+</html>
