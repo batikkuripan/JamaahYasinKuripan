@@ -8,7 +8,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title id="pageTitle">Jamaah Yasin</title>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/supabase.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <style>
@@ -304,28 +304,46 @@ async function verifyAndUnlock() {
   const btn = document.getElementById('btnUnlock');
   errDiv.style.display = 'none';
   if (!kode) { errDiv.style.display='block'; errDiv.textContent='Masukkan kode aktivasi!'; return; }
+
+  // Cek supabase siap
+  if (!window.supabase || !supabase) {
+    errDiv.style.display='block';
+    errDiv.textContent='❌ Library Supabase belum siap. Refresh halaman!';
+    return;
+  }
+
   btn.textContent = '⏳ Memeriksa...'; btn.disabled = true;
   try {
     const {data, error} = await supabase
       .from('activation')
       .select('*')
       .eq('kode', kode)
-      .eq('aktif', true)
-      .single();
-    if (error || !data) {
+      .eq('aktif', true);
+
+    // Tampilkan error Supabase yang sebenarnya
+    if (error) {
       errDiv.style.display = 'block';
-      errDiv.textContent = '❌ Kode tidak valid atau tidak aktif. Hubungi Admin grup Anda.';
+      errDiv.textContent = '❌ Supabase error: ' + error.message + ' | code: ' + error.code;
+      console.error('Supabase error:', error);
       btn.innerHTML = '&#x1F513; Buka Aplikasi'; btn.disabled = false; return;
     }
-    // Berhasil: simpan group_id
+    if (!data || data.length === 0) {
+      errDiv.style.display = 'block';
+      errDiv.textContent = '❌ Kode tidak valid atau tidak aktif. Hubungi Admin.';
+      btn.innerHTML = '&#x1F513; Buka Aplikasi'; btn.disabled = false; return;
+    }
+    // Berhasil: ambil baris pertama
+    const row = data[0];
     localStorage.setItem('app_isLoggedIn', 'true');
-    localStorage.setItem('app_group_id', data.group_id);
-    currentGroupId = data.group_id;
+    localStorage.setItem('app_group_id', row.group_id);
+    currentGroupId = row.group_id;
     document.getElementById('lockScreen').style.opacity = '0';
     document.getElementById('lockScreen').style.transition = 'opacity 0.5s';
     setTimeout(() => { document.getElementById('lockScreen').style.display = 'none'; initApp(); }, 500);
   } catch(e) {
-    errDiv.style.display = 'block'; errDiv.textContent = '❌ Gagal terhubung ke server. Periksa koneksi.';
+    errDiv.style.display = 'block';
+    errDiv.textContent = '❌ ' + (e.message || e.toString() || 'Unknown error - cek console browser (F12)');
+    console.error('FULL ERROR:', e);
     btn.innerHTML = '&#x1F513; Buka Aplikasi'; btn.disabled = false;
   }
 }
