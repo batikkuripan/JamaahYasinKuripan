@@ -286,7 +286,21 @@ tr:last-child td{border-bottom:none;}
 // ============================================================
 const SUPABASE_URL = 'https://nsvukmhnxyfakiqvxfta.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_8t1ZAdje54vzYC_jbmGhSA_kIpWiXE0';
-const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+let supabase = null;
+function getSupabase() {
+  if (!supabase) {
+    try {
+      const sb = window.supabase || window['supabase'];
+      if (!sb || !sb.createClient) {
+        throw new Error('Library Supabase tidak termuat. Periksa koneksi internet lalu refresh.');
+      }
+      supabase = sb.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    } catch(e) {
+      throw new Error('Inisialisasi Supabase gagal: ' + e.message);
+    }
+  }
+  return supabase;
+}
 
 // ============================================================
 // STATE GLOBAL
@@ -304,26 +318,23 @@ async function verifyAndUnlock() {
   const btn = document.getElementById('btnUnlock');
   errDiv.style.display = 'none';
   if (!kode) { errDiv.style.display='block'; errDiv.textContent='Masukkan kode aktivasi!'; return; }
-
-  // Cek supabase siap
-  if (!window.supabase || !supabase) {
-    errDiv.style.display='block';
-    errDiv.textContent='❌ Library Supabase belum siap. Refresh halaman!';
-    return;
-  }
-
   btn.textContent = '⏳ Memeriksa...'; btn.disabled = true;
+  errDiv.style.display = 'block';
+  errDiv.style.color = '#2e7d32';
+  errDiv.textContent = '🔄 Menghubungi server Supabase...';
+
   try {
-    const {data, error} = await supabase
+    const db = getSupabase();
+    const {data, error} = await db
       .from('activation')
       .select('*')
       .eq('kode', kode)
       .eq('aktif', true);
 
-    // Tampilkan error Supabase yang sebenarnya
+    errDiv.style.color = '#c0392b';
     if (error) {
       errDiv.style.display = 'block';
-      errDiv.textContent = '❌ Supabase error: ' + error.message + ' | code: ' + error.code;
+      errDiv.textContent = '❌ Supabase: ' + error.message + ' (kode: ' + error.code + ')';
       console.error('Supabase error:', error);
       btn.innerHTML = '&#x1F513; Buka Aplikasi'; btn.disabled = false; return;
     }
@@ -351,6 +362,7 @@ async function verifyAndUnlock() {
 document.getElementById('lockKode').addEventListener('keypress', e => { if(e.key==='Enter') verifyAndUnlock(); });
 
 function checkLoginStatus() {
+  initSupabase(); // init supabase safely
   const isLoggedIn = localStorage.getItem('app_isLoggedIn');
   const gid = localStorage.getItem('app_group_id');
   if (isLoggedIn === 'true' && gid) {
@@ -387,7 +399,7 @@ async function initApp() {
 // Kolom: id, created_at, nama_group, alamat, aktif
 // ============================================================
 async function loadGroupInfo() {
-  const {data} = await supabase.from('groups').select('*').eq('id', currentGroupId).single();
+  const {data} = await getSupabase().from('groups').select('*').eq('id', currentGroupId).single();
   if (!data) return;
   currentGroupData = data;
   document.getElementById('headerTitle').textContent = data.nama_group || 'Jamaah Yasin';
@@ -436,7 +448,7 @@ document.getElementById('anggotaForm').addEventListener('submit', async e => {
   const wa = document.getElementById('whatsapp').value.trim();
   const status = document.getElementById('status').value;
   const ket = document.getElementById('keterangan').value.trim();
-  const {error} = await supabase.from('anggota').insert([{nama, whatsapp:wa, status, keterangan:ket, group_id:currentGroupId}]);
+  const {error} = await getSupabase().from('anggota').insert([{nama, whatsapp:wa, status, keterangan:ket, group_id:currentGroupId}]);
   if (error) { showToast('Gagal: ' + error.message, 'error'); return; }
   document.getElementById('anggotaForm').reset();
   showToast('Anggota berhasil ditambahkan', 'success');
@@ -444,7 +456,7 @@ document.getElementById('anggotaForm').addEventListener('submit', async e => {
 });
 
 async function loadAnggota() {
-  const {data} = await supabase.from('anggota').select('*').eq('group_id', currentGroupId).order('nama');
+  const {data} = await getSupabase().from('anggota').select('*').eq('group_id', currentGroupId).order('nama');
   if (!data) return;
   document.getElementById('displayAnggotaCount').textContent = data.length + ' org';
   const tbody = document.querySelector('#anggotaTable tbody'); tbody.innerHTML = '';
@@ -477,7 +489,7 @@ document.getElementById('pertemuanForm').addEventListener('submit', async e => {
   const rumah = document.getElementById('tuanRumah').value.trim();
   const iuran = parseInt(document.getElementById('iuranInput').value);
   const ket = document.getElementById('keteranganPertemuan').value.trim();
-  const {error} = await supabase.from('pertemuan').insert([{tanggal:tgl, tuan_rumah:rumah, iuran_per_orang:iuran, keterangan:ket, total_hadir:0, total_iuran:0, group_id:currentGroupId}]);
+  const {error} = await getSupabase().from('pertemuan').insert([{tanggal:tgl, tuan_rumah:rumah, iuran_per_orang:iuran, keterangan:ket, total_hadir:0, total_iuran:0, group_id:currentGroupId}]);
   if (error) { showToast('Gagal buat pertemuan: ' + error.message, 'error'); return; }
   document.getElementById('pertemuanForm').reset();
   showToast('Pertemuan dibuat', 'success');
@@ -485,7 +497,7 @@ document.getElementById('pertemuanForm').addEventListener('submit', async e => {
 });
 
 async function loadPertemuan() {
-  const {data} = await supabase.from('pertemuan').select('*').eq('group_id', currentGroupId).order('tanggal', {ascending:false});
+  const {data} = await getSupabase().from('pertemuan').select('*').eq('group_id', currentGroupId).order('tanggal', {ascending:false});
   if (!data) return;
   const tbody = document.querySelector('#pertemuanTable tbody'); tbody.innerHTML = '';
   const sel = document.getElementById('pilihPertemuan'); const prev = sel.value;
@@ -510,12 +522,12 @@ async function loadPertemuan() {
 document.getElementById('btnSimpanAbsen').addEventListener('click', async () => {
   const pid = document.getElementById('pilihPertemuan').value;
   if (!pid) { showToast('Pilih pertemuan dulu!', 'error'); return; }
-  const {data:p} = await supabase.from('pertemuan').select('iuran_per_orang').eq('id', pid).single();
+  const {data:p} = await getSupabase().from('pertemuan').select('iuran_per_orang').eq('id', pid).single();
   const iuranPerOrang = p?.iuran_per_orang || 0;
   const checkboxes = document.querySelectorAll('.hadirChk');
   if (checkboxes.length === 0) { showToast('Belum ada anggota!', 'error'); return; }
   // Hapus data iuran lama untuk pertemuan ini
-  await supabase.from('iuran').delete().eq('pertemuan_id', parseInt(pid)).eq('group_id', currentGroupId);
+  await getSupabase().from('iuran').delete().eq('pertemuan_id', parseInt(pid)).eq('group_id', currentGroupId);
   let totalHadir = 0; let totalIuran = 0;
   const rows = [];
   checkboxes.forEach(cb => {
@@ -524,9 +536,9 @@ document.getElementById('btnSimpanAbsen').addEventListener('click', async () => 
     if (hadir) { totalHadir++; totalIuran += jumlah; }
     rows.push({ group_id:currentGroupId, pertemuan_id:parseInt(pid), anggota_id:parseInt(cb.dataset.id), jumlah, hadir });
   });
-  const {error} = await supabase.from('iuran').insert(rows);
+  const {error} = await getSupabase().from('iuran').insert(rows);
   if (error) { showToast('Gagal simpan iuran: ' + error.message, 'error'); return; }
-  await supabase.from('pertemuan').update({total_hadir:totalHadir, total_iuran:totalIuran}).eq('id', parseInt(pid));
+  await getSupabase().from('pertemuan').update({total_hadir:totalHadir, total_iuran:totalIuran}).eq('id', parseInt(pid));
   document.getElementById('totalIuranDisplay').textContent = 'Total: ' + formatRupiah(totalIuran);
   showToast(`Absensi & iuran tersimpan! (${totalHadir} hadir)`, 'success');
   loadPertemuan(); hitungSaldo();
@@ -536,7 +548,7 @@ document.getElementById('btnSimpanAbsen').addEventListener('click', async () => 
 // KAS — total iuran dari tabel iuran filter group_id & hadir=true
 // ============================================================
 async function hitungSaldo() {
-  const {data} = await supabase.from('iuran').select('jumlah').eq('group_id', currentGroupId).eq('hadir', true);
+  const {data} = await getSupabase().from('iuran').select('jumlah').eq('group_id', currentGroupId).eq('hadir', true);
   const total = (data||[]).reduce((a, b) => a + (parseFloat(b.jumlah)||0), 0);
   document.getElementById('saldoKas').textContent = formatRupiah(total);
 }
@@ -581,7 +593,7 @@ function initLaporanFilter() {
 document.getElementById('tampilLaporan').addEventListener('click', async () => {
   const bln = document.getElementById('pilihBulan').value;
   const thn = document.getElementById('pilihTahun').value;
-  const {data} = await supabase.from('pertemuan').select('*').eq('group_id', currentGroupId);
+  const {data} = await getSupabase().from('pertemuan').select('*').eq('group_id', currentGroupId);
   if (!data) return;
   const filtered = data.filter(p => {
     const d = new Date(p.tanggal);
@@ -618,12 +630,12 @@ document.getElementById('exportPDF').addEventListener('click', () => {
 // CHAT & BLAST WA
 // ============================================================
 async function saveChat(sender, wa, pesan) {
-  await supabase.from('chat').insert([{sender, wa, pesan, tanggal:new Date().toISOString()}]);
+  await getSupabase().from('chat').insert([{sender, wa, pesan, tanggal:new Date().toISOString()}]);
   loadChat();
 }
 
 async function loadChat() {
-  const {data} = await supabase.from('chat').select('*').order('tanggal', {ascending:true}).limit(20);
+  const {data} = await getSupabase().from('chat').select('*').order('tanggal', {ascending:true}).limit(20);
   const chatBox = document.getElementById('chatBox'); chatBox.innerHTML = '';
   (data||[]).forEach(c => { chatBox.innerHTML += `<div class="chat-msg"><b>[${c.sender}]</b> ${c.pesan}</div>`; });
   chatBox.scrollTop = chatBox.scrollHeight;
@@ -631,7 +643,7 @@ async function loadChat() {
 
 document.getElementById('kirimWA').addEventListener('click', async () => {
   const pesan = document.getElementById('pesanAdmin').value || "Assalamu'alaikum";
-  const {data} = await supabase.from('anggota').select('*').eq('group_id', currentGroupId);
+  const {data} = await getSupabase().from('anggota').select('*').eq('group_id', currentGroupId);
   if (!data || data.length === 0) { showToast('Belum ada anggota!', 'error'); return; }
   showToast(`Mengirim pesan ke ${data.length} anggota...`, 'normal');
   let i = 0;
@@ -690,8 +702,11 @@ function installApp() {
   deferredPrompt.userChoice.then(() => { deferredPrompt = null; document.getElementById('installBanner').style.display = 'none'; });
 }
 
-// START
-checkLoginStatus();
+// START — tunggu sampai semua DOM & library siap
+window.addEventListener('load', function() {
+  initSupabase();
+  checkLoginStatus();
+});
 </script>
 </body>
 </html>
